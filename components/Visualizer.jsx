@@ -1,6 +1,7 @@
-import {useRef, useEffect} from 'react'
-import { GUIAudio } from "@/lib/audio";
+import {useRef, useEffect, useState} from 'react'
 import { Microphone } from "@/lib/microphone";
+// import { Engine } from "@/lib/engine";
+import DatGui, { DatBoolean, DatColor, DatNumber, DatString, DatFolder, DatSelect } from 'react-dat-gui';
 
 export const Visualizer = () => {
 
@@ -8,28 +9,20 @@ export const Visualizer = () => {
   const audioSourcesRef = useRef(null)
   const localVideoref = useRef(null)
 
-  async function getMedia(constraints) {
-    let stream = null;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      // console.log(stream.getAudioTracks()[0].getCapabilities());
-
-      const audioStreams = stream.getAudioTracks()
-      for(let i = 0; i < audioStreams.length; i++){
-        console.log(audioStreams[i].getCapabilities());
-      }
-
-      // const audioDevices = await this.audioInterfaceController.getInputDevices();
-      // console.log(audioDevices) ;
-      // localVideoref.current.srcObject = stream;
-      // localVideoref.current.muted = true;
-    } catch (err) {
-      console.log(err);
-    }
-  }
+  const [activeMic, setActiveMic] = useState()
+  const [fftSizeState, setFftSizeState] = useState(512) //2^5 and 2^15, (32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768)
+  const [audioDevicesState, setAudioDevicesState] = useState()
+  const [datData, setDatData] = useState({
+    package: 'react-dat-gui',
+    power: 9001,
+    isAwesome: true,
+    feelsLike: '#d62fc2',
+    audioFolder: "Audio",
+    audioSelections: 'default'
+  })
 
 
-  function handleMain(){
+  async function handleMain(id, mic){
     // const canv = canvasRef.current
     const canv = document.getElementById('myCanvas')
     const ctx = canv.getContext('2d')
@@ -84,19 +77,17 @@ export const Visualizer = () => {
         context.restore()
       }
     }
-  
-    // const bar1 = new Bar(10, 10, 100, 200, 'blue')
-    const fftSize = 512 //2^5 and 2^15, (32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768)
-    const mic = new Microphone(fftSize)
+
+
     let bars = []
-    let barWidth = canv.width/(fftSize/2)
+    let barWidth = canv.width/(fftSizeState/2)
     
     function createBars(){
   
-      for(let i = 0; i < (fftSize/2); i++){
-        let c = `hsl(${ 150 + i * .3}, 100%, 50%)`
+      for(let i = 0; i < (fftSizeState/2); i++){
+        let clr = `hsl(${ 100 + i * .3}, 100%, 40%)`
         // bars.push(new Bar(i * barWidth, canv.height/2, 10, 50, c, i))
-        bars.push(new Bar(0, i * 2, 10, 50, c, i))
+        bars.push(new Bar(0, i * 2, 10, 50, clr, i))
       }
     }
     createBars()
@@ -131,30 +122,62 @@ export const Visualizer = () => {
   
   }
 
+  async function getAudioDevice(id) {
+
+    try {
+      const mic = new Microphone(fftSizeState)
+      setActiveMic(mic)
+      
+      const audioDevices = await mic.getInputDevices();
+      setAudioDevicesState(audioDevices)
+      
+      // TODO auto pics my Virtual Cable. figure out how to save this to local storage
+      const theID = id ? id : audioDevices[4].deviceId
+      mic.listenTo(theID);
+
+      handleMain(theID, mic)
+      
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
 
   useEffect(() => {
-    handleMain()
-  
-    getMedia({
-      video: false,
-      audio: true
-    })
+    getAudioDevice()
+    // handleMain(0)
 
-  }, [canvasRef])
+  }, [canvasRef, fftSizeState])
+
+  const handleUpdate = newData => {
+    setDatData(prev => ( { ...prev, ...newData } ));
+  }
   
 
   return (
     <div>
       <h1>visualz</h1>
+      {/* <DatGui data={datData} onUpdate={handleUpdate}>
+        <DatString path='package' label='Package' />
+        <DatNumber path='power' label='Power' min={9000} max={9999} step={1} />
+        <DatBoolean path='isAwesome' label='Awesome?' />
+        <DatColor path='feelsLike' label='Feels Like' />
+        <DatFolder path='audioFolder' title='Audio'>
+          <DatSelect path='audioSelections' options={audioDeviceIDsState} />
+        </DatFolder>
+      </DatGui> */}
 
-      <div className="audio-sources-cont">
-        <label htmlFor="audio-sources">Choose a car:</label>
-        <select name="audio-source" id="cars" ref={audioSourcesRef}>
-          <option value={'one'}> one </option>
-          <option value={'two'}> two </option>
-          <option value={'three'}> three </option>
-        </select>
-      </div>
+      {datData && audioDevicesState && (
+        <div className="audio-sources-cont">
+          <label htmlFor="audio-sources">input:</label>
+          <select name="audio-source" id="cars" ref={audioSourcesRef} onChange={e => getAudioDevice(e.target.value)}>
+            {audioDevicesState.map((device, i) => (
+              <option key={i} value={device.deviceId}> {device.label} </option>
+            ))}
+          </select>
+        </div>
+      )}
+
 
       {/* <video ref={localVideoref} autoPlay ></video> */}
 
