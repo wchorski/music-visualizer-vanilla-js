@@ -1,3 +1,5 @@
+// cred: Franks Lab -- https://www.youtube.com/watch?v=VXWvfrmpapI&t=574s
+
 import {useRef, useEffect, useState} from 'react'
 import { Microphone } from "@/lib/microphone";
 // import { Engine } from "@/lib/engine";
@@ -60,7 +62,7 @@ export const Visualizer = () => {
       setAudioDevicesState(audioDevices)
       
       // TODO auto pics my Virtual Cable. figure out how to save this to local storage
-      const theID = id ? id : audioDevices[4].deviceId
+      const theID = (id !== 'none') ? id : audioDevices[4].deviceId
       mic.listenTo(theID);
 
       handleRender(mic)
